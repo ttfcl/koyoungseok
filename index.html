@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>koyoungseok 주식컨트롤러</title>
+
+    <!-- ✅ Firebase SDK CDN 추가 -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <!-- ✅ 스타일 추가 -->
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            text-align: center;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        .data-container, .form-container, .guide {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+        .data-container p, .guide p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .data-container span {
+            font-weight: bold;
+            color: #007bff;
+        }
+        label {
+            font-size: 14px;
+            display: block;
+            margin-top: 10px;
+            text-align: left;
+        }
+        select, input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            width: 100%;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .guide {
+            font-size: 12px;
+            background: #eef5ff;
+            border-left: 5px solid #007bff;
+            padding: 10px;
+            text-align: left;
+        }
+        .guide strong {
+            color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>koyoungseok 주식컨트롤러</h1>
+    <div class="container">
+
+        <!-- 🔹 Firestore 데이터 표시 (읽기 전용) -->
+        <div class="data-container">
+            <h3>📊 현재 설정</h3>
+            <p>작동상태: <span id="current-handler">-</span></p>
+            <p>익절률: <span id="current-pp">-</span>%</p>
+            <p>손절률: <span id="current-mp">-</span>%</p>
+            <p>종목당 매수금액: <span id="current-money">-</span>원</p>
+        </div>
+
+        <!-- 🔹 새로운 값 입력 -->
+        <div class="form-container">
+            <h3>⚙ 변경 설정</h3>
+            <label>변경할 작동상태:</label>
+            <select id="handler">
+                <option value="true">true</option>
+                <option value="false">false</option>
+            </select>
+
+            <label>변경할 익절률:</label>
+            <select id="pp"></select>
+
+            <label>변경할 손절률:</label>
+            <select id="mp"></select>
+
+            <label>변경할 종목당 매수금액(원):</label>
+            <input type="number" id="money" value="0">
+
+            <button onclick="updateData()">수정하기</button>
+        </div>
+
+        <!-- 🔹 설명서 -->
+        <div class="guide">
+            <h3>📌 설명서</h3>
+            <p>1️⃣ 한번 수정하면 <strong>30분 후</strong> 다시 수정할 수 있습니다.</p>
+            <p>2️⃣ 모든 변경 사항은 <strong>다음 주식 영업일부터</strong> 적용됩니다.</p>
+            <p>3️⃣ 작동상태가 <strong>false</strong>이면 작동하지 않으며, <strong>true</strong>이면 작동합니다.<br>
+            &nbsp;&nbsp;&nbsp;단, 주식휴장일에는 작동하지 않습니다.</p>
+            <p>4️⃣ 매수금액 단위는 1원 단위입니다.<br>
+            &nbsp;&nbsp;&nbsp;예: <strong>20000 입력 → 1900원짜리 주식 10주 매수</strong></p>
+            <p>5️⃣ 최대 매수 종목수는 <strong>8개</strong>이므로 총 자본과 종목 수를 고려하세요.</p>
+        </div>
+
+    </div>
+
+    <script>
+        // Firebase 설정
+        //
+        const firebaseConfig = {
+            apiKey: "AIzaSyCq0arXZO1X91wkmXfJFczNlkcoBdC2Yc4",
+            authDomain: "usatelegrambotbdbc.firebaseapp.com",
+            projectId: "usatelegrambotbdbc",
+            storageBucket: "usatelegrambotbdbc.firebasestorage.app",
+            messagingSenderId: "109045263714",
+            appId: "1:109045263714:web:846d3fd0f302139dc6903b"
+        };
+
+        // Firebase 초기화
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const USER_ID = "koyoungseok";
+
+        function loadData() {
+            const docRef = db.collection(USER_ID).doc("investment");
+            docRef.get().then((doc) => {
+                if (doc.exists) {
+                    document.getElementById("current-handler").textContent = doc.data().handler;
+                    document.getElementById("current-pp").textContent = doc.data().pp;
+                    document.getElementById("current-mp").textContent = doc.data().mp;
+                    document.getElementById("current-money").textContent = doc.data().money;
+                } else {
+                    console.log("❌ Firestore 문서가 없습니다!");
+                }
+            }).catch((error) => {
+                console.error("데이터를 가져오는 중 오류 발생: ", error);
+            });
+        }
+
+        function updateData() {
+            const docRef = db.collection(USER_ID).doc("investment");
+
+            const newHandler = document.getElementById("handler").value;
+            const newMoney = Number(document.getElementById("money").value);
+            const newPP = parseFloat(document.getElementById("pp").value);
+            const newMP = parseFloat(document.getElementById("mp").value);
+
+            docRef.update({
+                handler: newHandler,
+                money: newMoney,
+                pp: newPP,
+                mp: newMP
+            }).then(() => {
+                alert("✅ 데이터가 성공적으로 업데이트되었습니다!");
+                loadData();
+            }).catch((error) => {
+                console.error("데이터 업데이트 중 오류 발생: ", error);
+            });
+        }
+
+        function generateOptions() {
+            for (let i = 0.1; i <= 20.0; i += 0.1) {
+                document.getElementById("pp").innerHTML += `<option value="${i.toFixed(1)}">${i.toFixed(1)}%</option>`;
+            }
+            for (let i = -0.1; i >= -10.0; i -= 0.1) {
+                document.getElementById("mp").innerHTML += `<option value="${i.toFixed(1)}">${i.toFixed(1)}%</option>`;
+            }
+        }
+
+        window.onload = function () {
+            generateOptions();
+            loadData();
+        };
+    </script>
+</body>
+</html>
