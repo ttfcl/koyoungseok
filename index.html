@@ -163,7 +163,18 @@
             });
         }
 
+        // 5️⃣ Firestore 데이터 업데이트 (30분 제한 적용)
         function updateData() {
+            const lastUpdateTime = localStorage.getItem("lastUpdateTime");
+            const now = new Date().getTime();
+            const THIRTY_MINUTES = 30 * 60 * 1000;
+
+            if (lastUpdateTime && now - lastUpdateTime < THIRTY_MINUTES) {
+                const remainingTime = Math.ceil((THIRTY_MINUTES - (now - lastUpdateTime)) / 60000);
+                alert(`❌ 30분 내에는 다시 수정할 수 없습니다. 남은 시간: ${remainingTime}분`);
+                return;
+            }
+
             const docRef = db.collection(USER_ID).doc("investment");
 
             const newHandler = document.getElementById("handler").value;
@@ -177,6 +188,7 @@
                 pp: newPP,
                 mp: newMP
             }).then(() => {
+                localStorage.setItem("lastUpdateTime", now);
                 alert("✅ 데이터가 성공적으로 업데이트되었습니다!");
                 loadData();
             }).catch((error) => {
